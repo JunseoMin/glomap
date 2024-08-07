@@ -1,2 +1,9 @@
 build
 data
+.pixi
+venv
+*.mp4
+.vscode
+output
+shell.nix
+/run.sh

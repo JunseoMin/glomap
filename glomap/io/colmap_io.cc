@@ -1,5 +1,5 @@
 #include "glomap/io/colmap_io.h"
-
+#include <glomap/io/recording.h>
 #include <colmap/util/misc.h>
 
 namespace glomap {
@@ -21,12 +21,23 @@ void WriteGlomapReconstruction(
   // If it is not seperated into several clusters, then output them as whole
   if (largest_component_num == -1) {
     colmap::Reconstruction reconstruction;
+    
     ConvertGlomapToColmap(cameras, images, tracks, reconstruction);
     // Read in colors
     if (image_path != "") {
       LOG(INFO) << "Extracting colors ...";
       reconstruction.ExtractColorsForAllImages(image_path);
     }
+
+    // Convert back to GLOMAP so that we can log the reconstruction with color.
+    std::unordered_map<camera_t, Camera> cameras_copy;
+    std::unordered_map<image_t, Image> images_copy;
+    std::unordered_map<track_t, Track> tracks_copy;
+    ConvertColmapToGlomap(reconstruction, cameras_copy, images_copy, tracks_copy);
+    rr_rec.set_time_sequence("step", algorithm_step++);
+    rr_rec.log("status", rerun::TextLog("Converted to Colmap and extracted colors"));
+    log_reconstruction(rr_rec, cameras_copy, images_copy, tracks_copy);
+    
     colmap::CreateDirIfNotExists(reconstruction_path + "/0", true);
     if (output_format == "txt") {
       reconstruction.WriteText(reconstruction_path + "/0");
@@ -45,6 +56,7 @@ void WriteGlomapReconstruction(
       if (image_path != "") {
         reconstruction.ExtractColorsForAllImages(image_path);
       }
+      
       colmap::CreateDirIfNotExists(
           reconstruction_path + "/" + std::to_string(comp), true);
       if (output_format == "txt") {

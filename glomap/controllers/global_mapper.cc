@@ -6,6 +6,7 @@
 #include "glomap/processors/relpose_filter.h"
 #include "glomap/processors/track_filter.h"
 #include "glomap/processors/view_graph_manipulation.h"
+#include "glomap/io/recording.h"
 
 #include <colmap/util/timer.h>
 
@@ -131,6 +132,8 @@ bool GlobalMapper::Solve(const colmap::Database& database,
     UndistortImages(cameras, images, false);
 
     GlobalPositioner gp_engine(options_.opt_gp);
+    rr_rec.set_time_sequence("step", algorithm_step);
+    rr_rec.log("status", rerun::TextLog("Starting global positioning"));
     if (!gp_engine.Solve(view_graph, cameras, images, tracks)) {
       return false;
     }
@@ -157,6 +160,9 @@ bool GlobalMapper::Solve(const colmap::Database& database,
         tracks,
         options_.inlier_thresholds.max_angle_error);
     run_timer.PrintSeconds();
+    rr_rec.set_time_sequence("step", algorithm_step++);
+    rr_rec.log("status", rerun::TextLog("Filter tracks based on the estimation"));
+    log_reconstruction(rr_rec, cameras, images, tracks);
   }
 
   // 6. Bundle adjustment
@@ -170,6 +176,7 @@ bool GlobalMapper::Solve(const colmap::Database& database,
     run_timer.Start();
 
     for (int ite = 0; ite < options_.num_iteration_bundle_adjustment; ite++) {
+      
       BundleAdjuster ba_engine(options_.opt_ba);
 
       BundleAdjusterOptions& ba_engine_options_inner = ba_engine.GetOptions();
@@ -185,6 +192,10 @@ bool GlobalMapper::Solve(const colmap::Database& database,
                 << ", stage 1 finished (position only)";
       run_timer.PrintSeconds();
 
+      rr_rec.set_time_sequence("step", algorithm_step++);
+      rr_rec.log("status", rerun::TextLog("Global bundle adjustment iteration " + std::to_string(ite+1) + ", stage 1 finished"));
+      log_reconstruction(rr_rec, cameras, images, tracks);
+
       // 6.2. Second stage: optimize rotations if desired
       ba_engine_options_inner.optimize_rotations =
           options_.opt_ba.optimize_rotations;
@@ -198,12 +209,17 @@ bool GlobalMapper::Solve(const colmap::Database& database,
       if (ite != options_.num_iteration_bundle_adjustment - 1)
         run_timer.PrintSeconds();
 
+      rr_rec.set_time_sequence("step", algorithm_step++);
+      rr_rec.log("status", rerun::TextLog("Global bundle adjustment iteration " + std::to_string(ite+1) + ", stage 2 finished"));
+      log_reconstruction(rr_rec, cameras, images, tracks);
+
       // 6.3. Filter tracks based on the estimation
       // For the filtering, in each round, the criteria for outlier is
       // tightened. If only few tracks are changed, no need to start bundle
       // adjustment right away. Instead, use a more strict criteria to filter
       UndistortImages(cameras, images, true);
       LOG(INFO) << "Filtering tracks by reprojection ...";
+
 
       bool status = true;
       size_t filtered_num = 0;
@@ -221,11 +237,19 @@ bool GlobalMapper::Solve(const colmap::Database& database,
         } else
           ite++;
       }
+
+      rr_rec.set_time_sequence("step", algorithm_step++);
+      rr_rec.log("status", rerun::TextLog("Filtered tracks by reprojection."));
+      log_reconstruction(rr_rec, cameras, images, tracks);
+
       if (status) {
         LOG(INFO) << "fewer than 0.1% tracks are filtered, stop the iteration.";
         break;
       }
     }
+    rr_rec.set_time_sequence("step", algorithm_step++);
+    rr_rec.log("status", rerun::TextLog("Global bundle adjustment done."));
+    log_reconstruction(rr_rec, cameras, images, tracks);
 
     // Filter tracks based on the estimation
     UndistortImages(cameras, images, true);
@@ -280,7 +304,7 @@ bool GlobalMapper::Solve(const colmap::Database& database,
       }
       run_timer.PrintSeconds();
     }
-
+  
     // Filter tracks based on the estimation
     UndistortImages(cameras, images, true);
     LOG(INFO) << "Filtering tracks by reprojection ...";
@@ -296,6 +320,9 @@ bool GlobalMapper::Solve(const colmap::Database& database,
         tracks,
         options_.inlier_thresholds.min_triangulation_angle);
   }
+  rr_rec.set_time_sequence("step", algorithm_step++);
+  rr_rec.log("status", rerun::TextLog("Retriangulation done" ));
+  log_reconstruction(rr_rec, cameras, images, tracks);
 
   // 8. Reconstruction pruning
   if (!options_.skip_pruning) {
@@ -311,6 +338,10 @@ bool GlobalMapper::Solve(const colmap::Database& database,
 
     run_timer.PrintSeconds();
   }
+
+  rr_rec.set_time_sequence("step", algorithm_step++);
+  rr_rec.log("status", rerun::TextLog("Reconstruction pruning done" ));
+  log_reconstruction(rr_rec, cameras, images, tracks);
 
   return true;
 }

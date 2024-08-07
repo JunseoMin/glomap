@@ -1,8 +1,14 @@
 #include "glomap/estimators/global_positioning.h"
 
 #include "glomap/estimators/cost_function.h"
+#include "glomap/io/recording.h"
+#include <colmap/util/misc.h>
+#include "glomap/io/colmap_io.h"
+
+#include <rerun.hpp>
 
 namespace glomap {
+
 namespace {
 
 Eigen::Vector3d RandVector3d(std::mt19937& random_generator,
@@ -15,6 +21,57 @@ Eigen::Vector3d RandVector3d(std::mt19937& random_generator,
 }
 
 }  // namespace
+
+
+class LoggingCallback : public ceres::IterationCallback {
+public: 
+  std::unordered_map<track_t, Track>& tracks;
+  std::unordered_map<camera_t, Camera>& cameras;
+  std::unordered_map<image_t, Image>& images;
+  std::string image_path;
+
+  LoggingCallback(std::unordered_map<track_t, Track>& tracks, 
+                  std::unordered_map<camera_t, Camera>& cameras,
+                  std::unordered_map<camera_t, Image>& images,
+                  std::string image_path
+  ) : tracks {tracks}, cameras {cameras}, images {images}, image_path {image_path} {}
+  ~LoggingCallback() {}
+
+  ceres::CallbackReturnType operator()(const ceres::IterationSummary& summary) {
+    
+    std::unordered_map<camera_t, Image> images_copy = images;
+    for (auto& [image_id, image] : images_copy) {
+      image.cam_from_world.translation =
+          -(image.cam_from_world.rotation * image.cam_from_world.translation);
+    }
+
+    rr_rec.set_time_sequence("step", algorithm_step++);
+
+    if (summary.iteration == 0) {
+      // This is a bit of a hack to extract the colors for the point cloud to make the visualization a bit prettier.
+      
+      std::unordered_map<camera_t, Camera> tmp_cameras;
+      std::unordered_map<image_t, Image> tmp_images;
+      std::unordered_map<track_t, Track> tmp_tracks;
+
+      colmap::Reconstruction reconstruction;
+      // ConvertDatabaseToColmap(re)
+      ConvertGlomapToColmap(cameras, images_copy, tracks, reconstruction);
+      reconstruction.ExtractColorsForAllImages(image_path);
+      ConvertColmapToGlomap(reconstruction, tmp_cameras, tmp_images, tmp_tracks);
+      for (auto &[track_id, track] : tmp_tracks) {
+        tracks[track_id].color = track.color;
+      }
+      log_reconstruction(rr_rec, tmp_cameras, tmp_images, tmp_tracks);
+  
+    } else {
+      log_reconstruction(rr_rec, cameras, images_copy, tracks);
+    }
+    LOG(INFO) << summary.iteration << std::endl;
+
+    return ceres::SOLVER_CONTINUE;
+  }  
+};
 
 GlobalPositioner::GlobalPositioner(const GlobalPositionerOptions& options)
     : options_(options) {
@@ -66,10 +123,16 @@ bool GlobalPositioner::Solve(const ViewGraph& view_graph,
   ParameterizeVariables(images, tracks);
 
   LOG(INFO) << "Solving the global positioner problem";
+  LoggingCallback callback {tracks, cameras, images, image_path_global};
 
   ceres::Solver::Summary summary;
   options_.solver_options.minimizer_progress_to_stdout = options_.verbose;
-  ceres::Solve(options_.solver_options, problem_.get(), &summary);
+
+  auto solver_options = options_.solver_options;
+  solver_options.callbacks.push_back(&callback);
+  solver_options.update_state_every_iteration = true;
+  
+  ceres::Solve(solver_options, problem_.get(), &summary);
 
   if (options_.verbose) {
     LOG(INFO) << summary.FullReport();

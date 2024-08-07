@@ -1,13 +1,18 @@
 #include "glomap/controllers/global_mapper.h"
 
 #include "glomap/controllers/option_manager.h"
+#include "colmap/sensor/bitmap.h"
 #include "glomap/io/colmap_io.h"
+#include "glomap/io/recording.h"
 #include "glomap/types.h"
 
 #include <colmap/util/misc.h>
 #include <colmap/util/timer.h>
+#include <rerun.hpp>
+#include <boost/gil.hpp>
 
 namespace glomap {
+
 // -------------------------------------
 // Mappers starting from COLMAP database
 // -------------------------------------
@@ -60,6 +65,9 @@ int RunMapper(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
+  init_recording();
+  image_path_global = image_path;
+
   // Load the database
   ViewGraph view_graph;
   std::unordered_map<camera_t, Camera> cameras;
@@ -69,12 +77,15 @@ int RunMapper(int argc, char** argv) {
   const colmap::Database database(database_path);
   ConvertDatabaseToGlomap(database, view_graph, cameras, images);
 
+  log_images(rr_rec, images, image_path);
+
   GlobalMapper global_mapper(*options.mapper);
 
   // Main solver
   LOG(INFO) << "Loaded database";
   colmap::Timer run_timer;
   run_timer.Start();
+
   global_mapper.Solve(database, view_graph, cameras, images, tracks);
   run_timer.Pause();
 
@@ -125,8 +136,14 @@ int RunMapperResume(int argc, char** argv) {
   std::unordered_map<image_t, Image> images;
   std::unordered_map<track_t, Track> tracks;
   colmap::Reconstruction reconstruction;
+
+  init_recording();
+  image_path_global = image_path;
+  
   reconstruction.Read(input_path);
   ConvertColmapToGlomap(reconstruction, cameras, images, tracks);
+
+  log_images(rr_rec, images, image_path);
 
   GlobalMapper global_mapper(*options.mapper);
 

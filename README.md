@@ -21,64 +21,73 @@ If you use this project for your research, please cite
 }
 ```
 
-## Getting Started
 
-To install GLOMAP, first install [COLMAP](https://colmap.github.io/install.html#build-from-source)
-dependencies and then build GLOMAP using the following commands: 
-```shell
-mkdir build
+## End-to-End with Docker.
+
+Download one of the [official datasets](https://colmap.github.io/datasets.html) unzip it.
+For example if we download the `south-building.zip`
+```bash
+mkdir -p data
+unzip south-building.zip -d data/
+```
+
+Build and enter the docker container by running the following scripts:
+```bash
+cd docker
+./build.sh # Builds the docker image
+./start.sh # Starts the docker container
+./attach.sh # Enter the container
+
+```
+
+When we're inside the container we can build `glomap` and install it.
+```bash
+mkdir -p build
 cd build
 cmake .. -GNinja
-ninja && ninja install
-```
-After installation, one can run GLOMAP by (starting from a database)
-```shell
-glomap mapper --database_path DATABASE_PATH --output_path OUTPUT_PATH --image_path IMAGE_PATH
-```
-For more details on the command line interface, one can type `glomap -h` or `glomap mapper -h` for help.
-
-Note:
-- GLOMAP depends on two external libraries - [COLMAP](https://github.com/colmap/colmap) and [PoseLib](https://github.com/PoseLib/PoseLib).
-  With the default setting, the library is built automatically by GLOMAP via `FetchContent`.
-  However, if a self-installed version is preferred, one can also disable the `FETCH_COLMAP` and `FETCH_POSELIB` CMake options.
-- To use `FetchContent`, the minimum required version of `cmake` is 3.28. If a self-installed version is used, `cmake` can be downgraded to 3.10.
-- If your system does not provide a recent enough CMake version, you can install it as:
-  ```shell
-  wget https://github.com/Kitware/CMake/releases/download/v3.30.1/cmake-3.30.1.tar.gz
-  tar xfvz cmake-3.30.1.tar.gz && cd cmake-3.30.1
-  ./bootstrap && make -j$(nproc) && sudo make install
-  ```
-
-## End-to-End Example
-
-In this section, we will use datasets from [this link](https://demuc.de/colmap/datasets) as examples.
-Download the datasets and put them under `data` folder.
-
-### From database
-
-If a COLMAP database already exists, GLOMAP can directly use it to perform mapping:
-```shell
-glomap mapper \
-    --database_path ./data/gerrard-hall/database.db \
-    --image_path    ./data/gerrard-hall/images \
-    --output_path   ./output/gerrard-hall/sparse
+ninja
+ninja install
 ```
 
-### From images
-
-To obtain a reconstruction from images, the database needs to be established
-first. Here, we utilize the functions from COLMAP:
-```shell
+To run it we must first extract the features and match them with `colmap`.
+```bash
+cd /ws
 colmap feature_extractor \
-    --image_path    ./data/south-building/images \
-    --database_path ./data/south-building/database.db
-colmap exhaustive_matcher \
-    --database_path ./data/south-building/database.db 
-glomap mapper \
-    --database_path ./data/south-building/database.db \
-    --image_path    ./data/south-building/images \
-    --output_path   ./output/south-building/sparse
+    --image_path    data/south-building/images \
+    --database_path data/south-building/database.db
+colmap sequential_matcher \
+    --database_path data/south-building/database.db 
 ```
+
+Now we're ready to run and visualize `glomap`:
+```bash
+glomap mapper \
+    --database_path data/south-building/database.db \
+    --image_path    data/south-building/images \
+    --output_path   data/south-building/sparse
+```
+
+If you're experiencing performance issues with rerun you might have to run the viewer outside of the docker container.
+
+### From video
+To run `glomap` on a video you will first have to split it into multiple frames and put them in a directory. To easily do this you can use the the script in `scripts/extract_frames.py` like this:
+```bash
+# Split 'colosseum.mp4' into frames at 1 frame per second and puts the images in colosseum/images.
+scripts/extract_frames.py -v colosseum.mp4 -o colosseum/images --desired-fps 1
+
+# Then you can extract the features like normally.
+colmap feature_extractor \
+    --image_path    colosseum/images \
+    --database_path colosseum/database.db
+  colmap sequential_matcher \ 
+    --database_path colosseum/database.db 
+
+glomap mapper \
+    --database_path colosseum/database.db \
+    --image_path    colosseum/images \
+    --output_path   colosseum/sparse
+```
+
 
 ### Notes
 

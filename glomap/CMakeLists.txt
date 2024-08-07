@@ -12,6 +12,7 @@ set(SOURCES
     io/colmap_converter.cc
     io/colmap_io.cc
     io/gravity_io.cc
+    io/recording.cc
     math/gravity.cc
     math/rigid3d.cc
     math/tree.cc
@@ -41,6 +42,7 @@ set(HEADERS
     io/colmap_converter.h
     io/colmap_io.h
     io/gravity_io.h
+    io/recording.h
     math/gravity.h
     math/l1_solver.h
     math/rigid3d.h
@@ -61,12 +63,20 @@ set(HEADERS
     scene/types.h
 )
 
+include(FetchContent)
+FetchContent_Declare(rerun_sdk URL
+    https://github.com/rerun-io/rerun/releases/latest/download/rerun_cpp_sdk.zip)
+FetchContent_MakeAvailable(rerun_sdk)
+
+
 add_library(glomap ${SOURCES} ${HEADERS})
 if(NOT FETCH_COLMAP)
-    target_link_libraries(glomap PUBLIC colmap::colmap)
+target_link_libraries(glomap PUBLIC colmap::colmap)
 else()
-    target_link_libraries(glomap PUBLIC colmap)
+target_link_libraries(glomap PUBLIC colmap)
 endif()
+
+target_link_libraries(glomap PUBLIC rerun_sdk)
 
 if(NOT FETCH_POSELIB)
     target_link_libraries(glomap PUBLIC PoseLib::PoseLib)
