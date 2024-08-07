@@ -55,6 +55,7 @@ cd /ws
 colmap feature_extractor \
     --image_path    data/south-building/images \
     --database_path data/south-building/database.db
+
 colmap sequential_matcher \
     --database_path data/south-building/database.db 
 ```
@@ -65,6 +66,14 @@ glomap mapper \
     --database_path data/south-building/database.db \
     --image_path    data/south-building/images \
     --output_path   data/south-building/sparse
+```
+To cleary see what's happening it's recommended you open the `blueprint.rbl` file in this directory.
+If you want a cooler visualization you can resume a mapping, you do this by first running the steps above and then running the following command:
+```bash
+glomap mapper_resume \
+    --image_path data/south-building/images \
+    --input_path data/south-building/sparse/0 \
+    --output_path data/south-building/sparse
 ```
 
 If you're experiencing performance issues with rerun you might have to run the viewer outside of the docker container.
@@ -87,7 +96,6 @@ glomap mapper \
     --image_path    colosseum/images \
     --output_path   colosseum/sparse
 ```
-
 
 ### Notes
 
