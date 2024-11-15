@@ -21,6 +21,16 @@ If you use this project for your research, please cite
 }
 ```
 
+## Using pixi
+Easiest way to run this example is using pixi, you can easily install it using curl explained here
+https://pixi.sh/latest/#installation
+
+then
+
+```
+pixi run example
+```
+
 
 ## End-to-End with Docker.
 

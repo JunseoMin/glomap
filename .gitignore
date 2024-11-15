@@ -7,3 +7,7 @@ venv
 output
 shell.nix
 /run.sh
+
+# pixi environments
+.pixi
+*.egg-info
