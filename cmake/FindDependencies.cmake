@@ -26,6 +26,16 @@ else()
 endif()
 message(STATUS "Configuring COLMAP... done")
 
+message(STATUS "Configuring Rerun...")
+if (FETCH_RERUN)
+  FetchContent_Declare(rerun_sdk URL
+      https://github.com/rerun-io/rerun/releases/download/0.17.0/rerun_cpp_sdk.zip)
+  FetchContent_MakeAvailable(rerun_sdk)
+else()
+    find_package(rerun_sdk REQUIRED)
+endif()
+message(STATUS "Configuring Rerun... done")
+
 find_package(Eigen3 3.4 REQUIRED)
 find_package(Ceres REQUIRED COMPONENTS SuiteSparse)
 find_package(Boost REQUIRED)

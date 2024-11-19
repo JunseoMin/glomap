@@ -42,7 +42,8 @@ cmake -B build -S . -GNinja \
     -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX \
     -DCMAKE_EXE_LINKER_FLAGS="-L$CONDA_PREFIX/lib" \
     -DFETCH_COLMAP=OFF \
-    -DFETCH_POSELIB=OFF
+    -DFETCH_POSELIB=OFF \
+    -DFETCH_RERUN=OFF
 """
 depends-on = ["_apply-patch"]
 [tasks.build]

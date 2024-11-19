@@ -13,6 +13,8 @@ option(ASAN_ENABLED "Whether to enable AddressSanitizer flags" OFF)
 option(CCACHE_ENABLED "Whether to enable compiler caching, if available" ON)
 option(FETCH_COLMAP "Whether to use COLMAP with FetchContent or with self-installed software" ON)
 option(FETCH_POSELIB "Whether to use PoseLib with FetchContent or with self-installed software" ON)
+option(FETCH_RERUN "Whether to use Rerun with FetchContent or with self-installed software" ON)
+
 
 include(cmake/FindDependencies.cmake)
 
