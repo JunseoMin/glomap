@@ -7,14 +7,17 @@ import cv2
 import numpy as np
 from pathlib import Path
 
-def extract_frames(cap, desired_fps: float | None) -> list[np.ndarray]:
+def extract_and_save_frames(cap, desired_fps: float | None, output_dir: Path):
     fps = cap.get(cv2.CAP_PROP_FPS)
     if desired_fps:
-        fps_ratio = desired_fps/fps
+        fps_ratio = desired_fps / fps
     else:
         fps_ratio = 1.0
-    frames = []
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+
     portion = 0.0
+    frame_idx = 0
     while True:
         ret, rgb_image = cap.read()
         if not ret:
@@ -22,13 +25,8 @@ def extract_frames(cap, desired_fps: float | None) -> list[np.ndarray]:
         portion += fps_ratio
         if portion >= 1.0:
             portion -= 1.0
-            frames.append(rgb_image)
-    return frames
-
-def save_frames(frames: list[np.ndarray], output_dir: Path):
-    output_dir.mkdir(parents=True, exist_ok=True)
-    for i, frame in enumerate(frames):
-        cv2.imwrite(str(output_dir / f"{i:0>5}.jpg"), frame)
+            cv2.imwrite(str(output_dir / f"{frame_idx:0>5}.jpg"), rgb_image)
+            frame_idx += 1
 
 
 def main():
